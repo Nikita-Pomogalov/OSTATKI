@@ -36,10 +36,10 @@ class YandexMarketAPI:
     async def get_stocks(self):
         """Получение остатков"""
         if not self.campaign_id or not self.api_key:
-            log_to_file("Ошибка Яндекса: Campaign ID или API Key не указан")
+            # log_to_file("Ошибка Яндекса: Campaign ID или API Key не указан")
             return []
 
-        log_to_file(f"Яндекс → Campaign ID: {self.campaign_id}")
+        # log_to_file(f"Яндекс → Campaign ID: {self.campaign_id}")
 
         url = f"{self.base_url}/v2/campaigns/{self.campaign_id}/offers/stocks"
         headers = {"Api-Key": self.api_key, "Content-Type": "application/json"}
@@ -55,10 +55,10 @@ class YandexMarketAPI:
                     body["pageToken"] = page_token
 
                 response = requests.post(url, headers=headers, json=body)
-                log_to_file(f"Яндекс страница {page}: статус {response.status_code}")
+                # log_to_file(f"Яндекс страница {page}: статус {response.status_code}")
 
                 if response.status_code != 200:
-                    log_to_file(f"Ошибка Яндекса: {response.text}")
+                    # log_to_file(f"Ошибка Яндекса: {response.text}")
                     break
 
                 data = response.json()
@@ -97,10 +97,11 @@ class YandexMarketAPI:
                     break
 
         except Exception as e:
-            log_to_file(f"Ошибка Яндекса: {e}")
+            print(f"Ошибка Яндекса: {e}")
+            # log_to_file(f"Ошибка Яндекса: {e}")
 
         result = sorted(all_stocks.values(), key=lambda x: x.offer_id)
-        log_to_file(f"Яндекс: загружено {len(result)} товаров")
+        # log_to_file(f"Яндекс: загружено {len(result)} товаров")
         return result
 
 
@@ -124,17 +125,17 @@ class OzonAPI:
 
         try:
             response = requests.post(url, headers=headers, json=body)
-            log_to_file(f"Ozon: статус {response.status_code}")
+            # log_to_file(f"Ozon: статус {response.status_code}")
 
             if response.status_code != 200:
-                log_to_file(f"Ошибка Ozon: {response.text}")
+                # log_to_file(f"Ошибка Ozon: {response.text}")
                 return []
 
             data = response.json()
             result = []
 
             items = data.get("items", [])
-            log_to_file(f"Ozon: найдено {len(items)} товаров")
+            # log_to_file(f"Ozon: найдено {len(items)} товаров")
 
             for item in items:
                 offer_id = item.get("offer_id") or item.get("offerId", "")
@@ -151,7 +152,7 @@ class OzonAPI:
             return sorted(result, key=lambda x: x.offer_id)
 
         except Exception as e:
-            log_to_file(f"Ошибка Ozon: {e}")
+            # log_to_file(f"Ошибка Ozon: {e}")
             return []
 
 
@@ -183,10 +184,10 @@ class WildberriesAPI:
 
         try:
             response = requests.post(url, headers=headers, json=body)
-            log_to_file(f"WB: статус {response.status_code}")
+            # log_to_file(f"WB: статус {response.status_code}")
 
             if response.status_code == 429:
-                log_to_file("WB: Слишком много запросов")
+                # log_to_file("WB: Слишком много запросов")
                 rate_headers = {}
                 for key in ['X-Ratelimit-Retry', 'X-Ratelimit-Limit', 'X-Ratelimit-Reset', 'Retry-After']:
                     if key in response.headers:
@@ -196,11 +197,11 @@ class WildberriesAPI:
                 else:
                     msg = "WB Rate Limit заголовки не найдены"
                 print(msg)
-                log_to_file(msg)
+                # log_to_file(msg)
                 return None
 
             if response.status_code != 200:
-                log_to_file(f"Ошибка WB: {response.text}")
+                # log_to_file(f"Ошибка WB: {response.text}")
                 return []
 
             data = response.json()
@@ -223,9 +224,9 @@ class WildberriesAPI:
                 else:
                     result.append(StockRow(offer_id, available, reserved))
 
-            log_to_file(f"WB: обработано {len(result)} уникальных товаров")
+            # log_to_file(f"WB: обработано {len(result)} уникальных товаров")
             return sorted(result, key=lambda x: x.offer_id)
 
         except Exception as e:
-            log_to_file(f"Ошибка WB: {e}")
+            # log_to_file(f"Ошибка WB: {e}")
             return []
