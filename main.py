@@ -14,13 +14,11 @@ class MainApp(ctk.CTk):
         self.geometry("1100x600")
         self.resizable(False, False)
 
-        # Центрируем окно
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (self.winfo_width() // 2)
         y = (self.winfo_screenheight() // 2) - (self.winfo_height() // 2)
         self.geometry(f"+{x}+{y}")
 
-        # Сначала показываем текст загрузки
         self.loading_label = ctk.CTkLabel(
             self,
             text="Загрузка программы...\nПожалуйста, подождите 10-15 секунд",
@@ -29,16 +27,13 @@ class MainApp(ctk.CTk):
         )
         self.loading_label.pack(expand=True)
 
-        # Обновляем окно, чтобы текст появился сразу
         self.update()
 
-        # Запускаем инициализацию в отдельном потоке
         threading.Thread(target=self.init_app, daemon=True).start()
 
     def init_app(self):
         """Инициализация приложения (в фоне)"""
 
-        # Создаём API-клиенты
         yandex_api = YandexMarketAPI(
             campaign_id="148729186",
             api_key="ACMA:YQwxxaomrWOiUQ0PEkfXnDtFcNiBCxzg5WeN6FfU:b2a295f7"
@@ -53,20 +48,16 @@ class MainApp(ctk.CTk):
             api_key="eyJhbGciOiJFUzI1NiIsImtpZCI6IjIwMjYwMzAydjEiLCJ0eXAiOiJKV1QifQ.eyJhY2MiOjMsImVudCI6MSwiZXhwIjoxNzkxNjU4NTczLCJmb3IiOiJzZWxmIiwiaWQiOiIwMTlkN2I1My1hYTcwLTcyMzktYjVlNi1kMGIxZWM2NjllNTAiLCJpaWQiOjgxODkzOTEsIm9pZCI6NDM4ODgzOCwicyI6ODE2NjIsInNpZCI6IjU4NWViMzcyLTVhZWYtNDE2Zi05ZDkyLTc2NDZlNmZiNTc5OCIsInQiOmZhbHNlLCJ1aWQiOjgxODkzOTF9.4B11lMuqjHNTy0rd879nPRKCK_AxUGgHcEfqqFuv7xa4ZEwyioZVcarMkuRmXpybF2T0_XPx3bCQuaW6Yqjuug"
         )
 
-        # Создаём интерфейс (в основном потоке)
         self.after(0, lambda: self.create_ui(yandex_api, ozon_api, wb_api))
 
     def create_ui(self, yandex_api, ozon_api, wb_api):
         """Создание интерфейса"""
 
-        # Убираем текст загрузки
         self.loading_label.destroy()
 
-        # Основной контейнер
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Три колонки
         self.yandex_panel = MarketplacePanel(
             main_frame, "ЯНДЕКС-МАРКЕТ",
             yandex_api,
@@ -91,7 +82,6 @@ class MainApp(ctk.CTk):
         )
         self.wb_panel.pack(side="left", padx=5, fill="both", expand=True)
 
-        # Автозагрузка данных
         self.after(500, self.auto_load)
 
     def auto_load(self):

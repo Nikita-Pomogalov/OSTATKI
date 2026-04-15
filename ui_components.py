@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 from openpyxl import Workbook
 from market_apis import YandexMarketAPI, OzonAPI, WildberriesAPI, StockRow
+import asyncio
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -29,18 +30,15 @@ class MarketplacePanel(ctk.CTkFrame):
         self.setup_ui()
 
     def setup_ui(self):
-        # Заголовок
         self.title_label = ctk.CTkLabel(
             self, text=self.title,
             font=ctk.CTkFont(size=16, weight="bold")
         )
         self.title_label.pack(pady=5)
 
-        # Таблица
         self.tree_frame = ctk.CTkFrame(self)
         self.tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Создаём таблицу через ttk
         columns = ("offer_id", "available", "reserved")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings", height=15)
 
@@ -52,14 +50,12 @@ class MarketplacePanel(ctk.CTkFrame):
         self.tree.column("available", width=80, anchor="center")
         self.tree.column("reserved", width=70, anchor="center")
 
-        # Скроллбар
         scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
 
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Кнопка обновления
         self.update_btn = ctk.CTkButton(
             self, text="Обновить остатки",
             command=self.update_stocks,
@@ -67,7 +63,6 @@ class MarketplacePanel(ctk.CTkFrame):
         )
         self.update_btn.pack(pady=5, padx=20, fill="x")
 
-        # Кнопка экспорта в Excel
         self.export_btn = ctk.CTkButton(
             self, text="📊 Экспорт в Excel",
             command=self.export_to_excel,
@@ -77,14 +72,25 @@ class MarketplacePanel(ctk.CTkFrame):
         )
         self.export_btn.pack(pady=5, padx=20, fill="x")
 
-        # Статус
         self.status_label = ctk.CTkLabel(self, text="Готов", font=ctk.CTkFont(size=10))
         self.status_label.pack(pady=2)
 
-        # Метка для таймера (только если есть задержка)
-        if self.cooldown_seconds > 0:
-            self.timer_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=10), text_color="orange")
-            self.timer_label.pack(pady=2)
+        self.timer_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=10),
+            text_color="orange",
+            height=20
+        )
+        self.timer_label.pack(pady=2)
+
+        if self.cooldown_seconds <= 0:
+            self.timer_label.configure(text="")
+            self.timer_label.pack_forget()
+            self.timer_placeholder = ctk.CTkFrame(self, height=20, fg_color="transparent")
+            self.timer_placeholder.pack(pady=2)
+        else:
+            self.timer_placeholder = None
 
     def start_cooldown(self):
         """Запускает таймер ожидания"""
@@ -94,22 +100,18 @@ class MarketplacePanel(ctk.CTkFrame):
         self.cooldown_active = True
         self.update_btn.configure(state="disabled", text=f"Подождите {self.cooldown_seconds}с...")
 
-        # Запускаем обратный отсчёт
         self._update_timer_display(self.cooldown_seconds)
 
     def _update_timer_display(self, remaining):
         """Обновление отображения таймера"""
         if remaining <= 0:
-            # Таймер закончился
             self.cooldown_active = False
             self.update_btn.configure(state="normal", text="Обновить остатки")
             if hasattr(self, 'timer_label'):
                 self.timer_label.configure(text="")
         else:
-            # Обновляем текст
             if hasattr(self, 'timer_label'):
                 self.timer_label.configure(text=f"⏰ Ожидание: {remaining} сек")
-            # Запускаем следующий тик через 1 секунду
             self.cooldown_timer = self.after(1000, lambda: self._update_timer_display(remaining - 1))
 
     def cancel_cooldown(self):
@@ -128,7 +130,6 @@ class MarketplacePanel(ctk.CTkFrame):
             messagebox.showwarning("Нет данных", "Сначала обновите остатки!")
             return
 
-        # Создаём имя файла
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{self.title}_остатки_{timestamp}.xlsx"
@@ -193,7 +194,7 @@ class MarketplacePanel(ctk.CTkFrame):
         if column == "available" or column == "reserved":
             self.stocks.sort(key=lambda x: getattr(x, column), reverse=reverse)
         else:
-            self.stocks.sort(key=lambda x: getattr(x, column), reverse=reverse)
+            self.stocks.sort(key=lambda x: self.parse_article(x.offer_id), reverse=reverse)
 
         self.refresh_table()
 
@@ -226,7 +227,6 @@ class MarketplacePanel(ctk.CTkFrame):
         if self.loading:
             return
 
-        # Проверяем, активен ли таймер ожидания
         if self.cooldown_active:
             messagebox.showwarning(
                 "Подождите",
@@ -243,10 +243,22 @@ class MarketplacePanel(ctk.CTkFrame):
         thread.daemon = True
         thread.start()
 
+
+    def parse_article(self, article):
+        """Парсит артикул вида BAZ-XX-YY-ZZ и возвращает кортеж чисел для сортировки"""
+        try:
+            if article.startswith("BAZ-"):
+                parts = article[4:].split("-")
+                numbers = tuple(int(part) for part in parts if part.isdigit())
+                return numbers
+            else:
+                return (article,)
+        except (ValueError, AttributeError):
+            return (article,)
+
     def _do_update(self):
         """Фоновое обновление"""
         try:
-            import asyncio
 
             if self.title == "ОЗОН" and self.api_client_ozon:
                 loop = asyncio.new_event_loop()
@@ -265,6 +277,7 @@ class MarketplacePanel(ctk.CTkFrame):
                 loop.close()
 
             if stocks is not None:
+                stocks.sort(key=lambda x: self.parse_article(x.offer_id))
                 self.stocks = stocks
                 self.after(0, self.refresh_table)
                 self.after(0, lambda: self.status_label.configure(text=f"Обновлено: {len(stocks)} товаров"))

@@ -3,17 +3,17 @@ import json
 import os
 from datetime import datetime
 
-# Файл для логов
-LOG_FILE = "MarketplaceApiLog.txt"
-
-
-def log_to_file(text):
-    """Запись логов в файл"""
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"{text}\n{'-' * 50}\n")
-    except Exception as e:
-        print(f"Ошибка записи лога: {e}")
+# # Файл для логов
+# LOG_FILE = "MarketplaceApiLog.txt"
+#
+#
+# def log_to_file(text):
+#     """Запись логов в файл"""
+#     try:
+#         with open(LOG_FILE, "a", encoding="utf-8") as f:
+#             f.write(f"{text}\n{'-' * 50}\n")
+#     except Exception as e:
+#         print(f"Ошибка записи лога: {e}")
 
 
 class StockRow:
@@ -162,7 +162,6 @@ class WildberriesAPI:
         self.api_key = api_key
         self.base_url = "https://seller-analytics-api.wildberries.ru"
 
-        # Словарь соответствия nmId -> артикул
         self.nm_to_article = {
             868320440: "BAZ-30-20-35",
             596805663: "BAZ-180-10-35",
@@ -186,10 +185,8 @@ class WildberriesAPI:
             response = requests.post(url, headers=headers, json=body)
             log_to_file(f"WB: статус {response.status_code}")
 
-            # Если получили 429 - выводим все заголовки с лимитами
             if response.status_code == 429:
                 log_to_file("WB: Слишком много запросов")
-                # Выводим в консоль и в лог заголовки rate limit
                 rate_headers = {}
                 for key in ['X-Ratelimit-Retry', 'X-Ratelimit-Limit', 'X-Ratelimit-Reset', 'Retry-After']:
                     if key in response.headers:
@@ -198,8 +195,8 @@ class WildberriesAPI:
                     msg = f"WB Rate Limit заголовки: {rate_headers}"
                 else:
                     msg = "WB Rate Limit заголовки не найдены"
-                print(msg)  # в консоль
-                log_to_file(msg)  # в лог
+                print(msg)
+                log_to_file(msg)
                 return None
 
             if response.status_code != 200:
@@ -209,19 +206,16 @@ class WildberriesAPI:
             data = response.json()
             result = []
 
-            # Парсим ответ (структура может меняться)
             items = data.get("data", {}).get("items", []) or data.get("items", [])
 
             for item in items:
                 nm_id = item.get("nmId", 0)
-                # Преобразуем nmId в артикул
                 offer_id = self.nm_to_article.get(nm_id, f"nm{nm_id}")
 
                 available = item.get("quantity", 0) or item.get("freeToSell", 0) or item.get("stock", 0)
                 reserved = (item.get("reserved", 0) or 0) + (item.get("inWayToClient", 0) or 0) + (
                         item.get("inWayFromClient", 0) or 0)
 
-                # Проверяем, есть ли уже такой товар (суммируем по складам)
                 existing = next((s for s in result if s.offer_id == offer_id), None)
                 if existing:
                     existing.available += available
